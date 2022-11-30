@@ -2,6 +2,7 @@ const pool = require('../lib/utils/pool');
 const setup = require('../data/setup');
 const request = require('supertest');
 const app = require('../lib/app');
+const UserService = require('../lib/services/UserService.js');
 
 describe('restaurant routes', () => {
   beforeEach(() => {
@@ -10,6 +11,14 @@ describe('restaurant routes', () => {
   afterAll(() => {
     pool.end();
   });
+
+  // Dummy user for testing
+  const mockUser = {
+    firstName: 'Test',
+    lastName: 'User',
+    email: 'test@example.com',
+    password: '12345',
+  };
 
   it('GET api/v1/restaurants should return a list of restaurants', async () => {
     const resp = await request(app).get('/api/v1/restaurants');
@@ -88,5 +97,40 @@ describe('restaurant routes', () => {
         "website": "http://www.PipsOriginal.com",
       }
     `);
+  });
+
+  const registerAndLogin = async () => {
+    const agent = request.agent(app);
+    const user = await UserService.create(mockUser);
+    await agent
+      .post('/api/v1/users/sessions')
+      .send({ email: mockUser.email, password: mockUser.password });
+    return [agent, user];
+  };
+
+  it('POST /api/v1/restaurants/:id/reviews should create a new review when logged in', async () => {
+    const [agent] = await registerAndLogin();
+    const resp = await agent.post('/api/v1/restaurants/1/reviews').send({
+      stars: 5,
+      detail: 'This is a new review',
+    });
+    expect(resp.status).toBe(200);
+    expect(resp.body).toMatchInlineSnapshot(`
+      Object {
+        "detail": "This is a new review",
+        "id": "4",
+        "restaurant_id": "1",
+        "stars": 5,
+        "user_id": "4",
+      }
+    `);
+  });
+
+  it('POST /api/v1/restaurants/:id/reviews should return a 401 if not authenticated', async () => {
+    const resp = await request(app).post('/api/v1/restaurants/1/reviews').send({
+      stars: 5,
+      detail: 'This should NOT save',
+    });
+    expect(resp.status).toBe(401);
   });
 });
