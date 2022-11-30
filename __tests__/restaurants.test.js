@@ -133,4 +133,18 @@ describe('restaurant routes', () => {
     });
     expect(resp.status).toBe(401);
   });
+
+  it('DELETE /api/v1/reviews/:id should delete a review', async () => {
+    const [agent] = await registerAndLogin();
+    await agent
+      .post('/api/v1/restaurants/4/reviews')
+      .send({ stars: 1, detail: 'So bad' });
+    const res = await agent
+      .delete('/api/v1/reviews/4')
+      .send({ message: 'deleted successfully' });
+    expect(res.status).toBe(200);
+
+    const deleteCheck = await agent.get('/api/v1/reviews/4');
+    expect(deleteCheck.status).toBe(404);
+  });
 });
